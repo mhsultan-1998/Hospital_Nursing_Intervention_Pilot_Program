@@ -1,0 +1,172 @@
+---
+title: "DA5020.P2.Mir.Sultan"
+author: "Mir Sultan"
+date: "2023-07-16"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Step 1
+We have two dimension tables represented by business.csv and bed_type.csv.
+The dimensions in bed_type.csv are are the bed codes, bed descriptions, and bed IDs. The attributes in this table or csv file are for the beds in the fact table bed_fact.csv.
+
+The dimensions in business_type.csv are business name, IMS org ID, and bed cluster ID. 
+
+
+# Step 2
+The facts in the fact table bed_fact.csv are license_beds, census_beds, and staffed_beds. 
+
+
+# Step 3
+```{r message=FALSE, warning=FALSE}
+library(RSQLite)
+library(DBI)
+library(XML)
+library(xml2)
+library(RCurl)
+library(dplyr)
+library(stringr)
+library(tidyverse)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+library(scales)
+library(readr)
+
+mydb <- dbConnect(RSQLite::SQLite())
+
+```
+
+```{sql, connection=mydb}
+CREATE TABLE IF NOT EXISTS bed_type (
+  bed_id INTEGER PRIMARY KEY,
+  bed_code TEXT,
+  bed_desc TEXT
+);
+```
+```{sql, connection=mydb}
+CREATE TABLE IF NOT EXISTS business (
+  ims_org_id TEXT PRIMARY KEY,
+  business_name TEXT,
+  ttl_license_beds INTEGER,
+  ttl_census_beds INTEGER,
+  ttl_staffed_beds INTEGER,
+  bed_cluster_id INTEGER,
+  FOREIGN KEY(bed_cluster_id) REFERENCES bed_type(bed_id)
+);
+```
+```{sql, connection=mydb}
+CREATE TABLE IF NOT EXISTS bed_fact (
+  ims_org_id TEXT,
+  bed_id INTEGER REFERENCES bed_type(bed_id),
+  license_beds INTEGER,
+  census_beds INTEGER,
+  staffed_beds INTEGER,
+  FOREIGN KEY(ims_org_id) REFERENCES business(ims_org_id),
+  FOREIGN KEY(bed_id) REFERENCES bed_type(bed_id)
+);
+```
+
+```{r}
+bed_type <- read.csv("bed_type.csv", stringsAsFactors = FALSE)
+bed_fact <- read.csv("bed_fact.csv", stringsAsFactors = FALSE)
+business <- read.csv("business.csv", stringsAsFactors = FALSE)
+
+dbWriteTable(mydb, "bed_type", bed_type, append = TRUE)
+dbWriteTable(mydb, "bed_fact", bed_fact, append = TRUE)
+dbWriteTable(mydb, "business", business, append = TRUE)
+
+```
+For better SQL practice, everything in the CSV files were made into SQL tables where the appropriate primary and foreign keys were applied.
+
+## 3a
+```{sql, connection=mydb}
+SELECT b.business_name AS hospital_name, SUM(bf.license_beds) AS total_license_beds
+FROM business b
+JOIN bed_fact bf ON b.ims_org_id = bf.ims_org_id
+WHERE bf.bed_id IN (4, 15)
+GROUP BY b.business_name
+ORDER BY total_license_beds DESC
+LIMIT 10;
+```
+
+```{sql, connection=mydb}
+SELECT b.business_name AS hospital_name, SUM(bf.census_beds) AS total_census_beds
+FROM business b
+JOIN bed_fact bf ON b.ims_org_id = bf.ims_org_id
+WHERE bf.bed_id IN (4, 15)
+GROUP BY b.business_name
+ORDER BY total_census_beds DESC
+LIMIT 10;
+```
+
+```{sql, connection=mydb}
+SELECT b.business_name AS hospital_name, SUM(bf.staffed_beds) AS total_staffed_beds
+FROM business b
+JOIN bed_fact bf ON b.ims_org_id = bf.ims_org_id
+WHERE bf.bed_id IN (4, 15)
+GROUP BY b.business_name
+ORDER BY total_staffed_beds DESC
+LIMIT 10;
+```
+
+## 3b Interpretation of Findings
+
+
+# Step 4
+Query Process Steps
+1. Getting Data (From, Join)
+2. Row Filter (Where)
+3. Grouping (Group by)
+4. Group Filter (Having)
+5. Return Expressions (Select)
+6. Order & Paging (Order by & Limit / Offset)
+## 4a
+```{sql, connection=mydb}
+SELECT b.business_name AS hospital_name, SUM(bf.license_beds) AS total_license_beds
+FROM business b
+JOIN bed_fact bf ON b.ims_org_id = bf.ims_org_id
+WHERE bf.bed_id IN (4, 15)
+GROUP BY b.business_name
+HAVING COUNT(DISTINCT bf.bed_id) = 2
+ORDER BY total_license_beds DESC
+LIMIT 10;
+```
+
+```{sql, connection=mydb}
+SELECT b.business_name AS hospital_name, SUM(bf.census_beds) AS total_census_beds
+FROM business b
+JOIN bed_fact bf ON b.ims_org_id = bf.ims_org_id
+WHERE bf.bed_id IN (4, 15)
+GROUP BY b.business_name
+HAVING COUNT(DISTINCT bf.bed_id) = 2
+ORDER BY total_census_beds DESC
+LIMIT 10;
+```
+
+```{sql, connection=mydb}
+SELECT b.business_name AS hospital_name, SUM(bf.staffed_beds) AS total_staffed_beds
+FROM business b
+JOIN bed_fact bf ON b.ims_org_id = bf.ims_org_id
+WHERE bf.bed_id IN (4, 15)
+GROUP BY b.business_name
+HAVING COUNT(DISTINCT bf.bed_id) = 2
+ORDER BY total_staffed_beds DESC
+LIMIT 10;
+```
+
+
+
+
+
+
+
+
+
+
+
